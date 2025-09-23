@@ -60,7 +60,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
+    const socket = io(); // only used here for room list, not for create/join
 
     function notify(msg, isErr=false){
       const n=document.createElement('div');
@@ -69,8 +69,8 @@
       document.getElementById('notifications').prepend(n);
     }
 
-    function goGame(roomId, nickname){
-      const qs = `room=${encodeURIComponent(roomId)}&nick=${encodeURIComponent(nickname)}`;
+    function goGame(roomId, nickname, action){
+      const qs = `room=${encodeURIComponent(roomId)}&nick=${encodeURIComponent(nickname)}&action=${action}`;
       window.location.href = `/game.html?${qs}`;
     }
 
@@ -78,20 +78,14 @@
       const nickname=document.getElementById("nickname").value.trim();
       const roomId=document.getElementById("roomId").value.trim();
       if(!nickname||!roomId) return notify("Please enter nickname and room ID.", true);
-      socket.emit("createRoom",{roomId,nickname},(res)=>{
-        if(res.success){ notify(`Room ${roomId} created.`); goGame(roomId,nickname); }
-        else notify(res.message,true);
-      });
+      goGame(roomId, nickname, "create");
     };
 
     document.getElementById("joinRoom").onclick = () => {
       const nickname=document.getElementById("nickname").value.trim();
       const roomId=document.getElementById("roomId").value.trim();
       if(!nickname||!roomId) return notify("Please enter nickname and room ID.", true);
-      socket.emit("joinRoom",{roomId,nickname},(res)=>{
-        if(res.success){ notify(`Joining room ${roomId}...`); goGame(roomId,nickname); }
-        else notify(res.message,true);
-      });
+      goGame(roomId, nickname, "join");
     };
 
     // === Active rooms list ===
@@ -101,7 +95,7 @@
     function renderRooms(rooms){
       const c=document.getElementById("roomList");
       c.innerHTML="";
-      if(rooms.length===0){ c.textContent="No active rooms."; return; }
+      if(!rooms || rooms.length===0){ c.textContent="No active rooms."; return; }
 
       rooms.forEach(r=>{
         const div=document.createElement("div");
@@ -109,21 +103,12 @@
         let players = r.players.join(" vs ");
         if(r.players.length===1){
           div.innerHTML=`<span>Room <b>${r.roomId}</b> (${players})</span>
-            <button onclick="joinOpenRoom('${r.roomId}')">Join</button>`;
+            <button onclick="goGame('${r.roomId}', document.getElementById('nickname').value.trim(), 'join')">Join</button>`;
         } else {
           div.innerHTML=`<span>Room <b>${r.roomId}</b> (${players})</span>
             <span class="full-label">Full</span>`;
         }
         c.appendChild(div);
-      });
-    }
-
-    function joinOpenRoom(roomId){
-      const nickname=document.getElementById("nickname").value.trim();
-      if(!nickname) return notify("Please enter your nickname.", true);
-      socket.emit("joinRoom",{roomId,nickname},(res)=>{
-        if(res.success){ notify(`Joining room ${roomId}...`); goGame(roomId,nickname); }
-        else notify(res.message,true);
       });
     }
   </script>
