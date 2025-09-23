@@ -70,17 +70,19 @@
     const scoreboard=document.getElementById('scoreboard');
     const terrains=['grass','sand','gravel'];
 
-    // Fill board
-    for(let i=0;i<16*16;i++){const cell=document.createElement('div');cell.classList.add('cell',terrains[Math.floor(Math.random()*terrains.length)]);cell.dataset.index=i;board.appendChild(cell);}
+    for(let i=0;i<16*16;i++){
+      const cell=document.createElement('div');
+      cell.classList.add('cell',terrains[Math.floor(Math.random()*terrains.length)]);
+      cell.dataset.index=i;board.appendChild(cell);
+    }
 
-    // Parse params
     const urlParams=new URLSearchParams(window.location.search);
     const roomId=urlParams.get("room");
     const nickname=urlParams.get("nick");
-    const action=urlParams.get("action"); // "create" or "join"
+    const action=urlParams.get("action");
 
     const socket=io();
-    let opponentNick=null;
+    let opponentNick=null, opponentMage=null, opponentX=0, opponentY=0;
 
     if(action==="create"){
       socket.emit("createRoom",{roomId,nickname},(res)=>{if(!res.success){alert(res.message);window.location.href="/";}});
@@ -94,21 +96,25 @@
       scoreboard.textContent=`${nickname} 0 : 0 ${opponentNick}`;
       modalMessage.textContent="Both players are here!";
       modal.classList.add("show");
+
+      opponentMage=document.createElement('div');
+      opponentMage.classList.add('mage');
+      opponentMage.innerHTML=`<div class="nickname">${opponentNick}</div>
+        <div class="floating-hp"><div class="floating-hp-bar"></div></div>
+        <div class="hair" style="background:#ccc"></div>
+        <div class="robe" style="background:#666"></div>`;
+      board.appendChild(opponentMage);
     });
 
     socket.on("opponentLeft",()=>{alert("Opponent left.");window.location.href="/";});
 
-    // === Mage setup ===
-    const robeColors=['#3498db','#8e44ad','#e67e22','#2ecc71','#f39c12'];
-    const hairColors=['#fff','#ffcc00','#000','#c0392b','#95a5a6'];
-    const rand=arr=>arr[Math.floor(Math.random()*arr.length)];
-
+    // === Local Mage ===
     const mage=document.createElement('div');
     mage.classList.add('mage');
     mage.innerHTML=`<div class="nickname">${nickname}</div>
       <div class="floating-hp"><div class="floating-hp-bar" id="floatingHpBar"></div></div>
-      <div class="hair" style="background:${rand(hairColors)}"></div>
-      <div class="robe" style="background:${rand(robeColors)}"></div>`;
+      <div class="hair" style="background:#fff"></div>
+      <div class="robe" style="background:#3498db"></div>`;
     board.appendChild(mage);
 
     let mageX=5,mageY=5;const cellSize=64;
@@ -118,11 +124,11 @@
     let hp=100;
     const floatingHpBar=document.getElementById('floatingHpBar');
     function updateHP(){hpBar.style.width=hp+"%";floatingHpBar.style.width=hp+"%";}
+    updateHP();
 
-    // === Movement ===
+    // Movement
     const moves={'KeyW':[0,-1],'KeyS':[0,1],'KeyA':[-1,0],'KeyD':[1,0],'KeyQ':[-1,-1],'KeyE':[1,-1],'KeyZ':[-1,1],'KeyC':[1,1]};
     let lastMoveTime=0,isMoving=false,gameActive=false;
-
     window.addEventListener('keydown',(e)=>{
       if(!gameActive) return;
       if(moves[e.code]&&!isMoving){
@@ -135,13 +141,18 @@
           mageX=newX;mageY=newY;
           isMoving=true;
           updateMage();
-          setTimeout(()=>{isMoving=false;lastMoveTime=Date.now();},100);
           socket.emit("playerMove",{roomId,x:mageX,y:mageY});
+          setTimeout(()=>{isMoving=false;lastMoveTime=Date.now();},100);
         }
       }
     });
 
-    // === Rune casting ===
+    socket.on("updateOpponentPosition",({x,y})=>{
+      opponentX=x;opponentY=y;
+      if(opponentMage){opponentMage.style.left=x*cellSize+'px';opponentMage.style.top=y*cellSize+'px';}
+    });
+
+    // Rune casting
     let selectedRune=null;
     document.getElementById('sdBtn').onclick=()=>{if(!gameActive)return;selectedRune='sd';board.style.cursor='crosshair';};
     document.getElementById('uhBtn').onclick=()=>{if(!gameActive)return;selectedRune='uh';board.style.cursor='crosshair';};
@@ -163,13 +174,14 @@
       selectedRune=null;board.style.cursor='default';
     });
 
-    // === Countdown ===
+    socket.on("opponentCastRune",({type,targetX,targetY})=>{
+      const index=targetY*16+targetX;
+      const effectTarget=board.children[index];
+      const spell=document.createElement('div');spell.classList.add('spell',type||'miss');effectTarget.appendChild(spell);
+      setTimeout(()=>spell.remove(),400);
+    });
+
+    // Countdown
     function startCountdown(callback){
       let count=3;countdown.textContent=count;countdown.classList.add('show');
-      const interval=setInterval(()=>{count--;if(count>0){countdown.textContent=count;}else if(count===0){countdown.textContent="GO!";}else{clearInterval(interval);countdown.classList.remove('show');callback();}},1000);
-    }
-
-    startBtn.onclick=()=>{modal.classList.remove('show');hp=100;updateHP();mageX=Math.floor(Math.random()*16);mageY=Math.floor(Math.random()*16);updateMage();startCountdown(()=>{gameActive=true;});};
-  </script>
-</body>
-</html>
+      const interval=setInterval(()=>{count--;if(count>0){countdown.textContent=count;}else if(count===0
