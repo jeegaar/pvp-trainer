@@ -47,6 +47,11 @@
     <div class="notifications" id="notifications">
       <div class="notification">🔔 Sample notification: Room created successfully!</div>
     </div>
+    <div class="rooms" style="margin-top:20px;text-align:left;">
+  <h3 style="color:#f1c40f;">Active Rooms</h3>
+  <div id="roomList">Loading…</div>
+</div>
+
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -93,6 +98,29 @@
         }
       });
     };
+    function renderRooms(rooms) {
+  const c = document.getElementById("roomList");
+  c.innerHTML = "";
+  if (!rooms || rooms.length === 0) {
+    c.textContent = "No active rooms.";
+    return;
+  }
+
+  const ul = document.createElement("ul");
+  rooms.forEach(r => {
+    const li = document.createElement("li");
+    li.textContent = `Room ${r.roomId} | ${r.player1} | ${r.player2}`;
+    ul.appendChild(li);
+  });
+  c.appendChild(ul);
+}
+
+// Ask server once on load
+socket.emit("getRooms", (rooms) => renderRooms(rooms));
+
+// Keep updated automatically
+socket.on("roomsUpdate", (rooms) => renderRooms(rooms));
+
   </script>
 </body>
 </html>
