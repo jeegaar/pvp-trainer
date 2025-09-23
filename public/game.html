@@ -1,46 +1,249 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Rune Arena — Game</title>
+  <meta charset="UTF-8" />
+  <title>PVP Trainer — Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body{margin:0;height:100vh;display:flex;justify-content:center;align-items:center;background:#111;font-family:Arial,sans-serif;color:#fff}
-    .container{display:flex;align-items:flex-start;gap:40px}
-    .board{width:1024px;height:1024px;display:grid;grid-template-columns:repeat(16,64px);grid-template-rows:repeat(16,64px);border:4px solid #333;position:relative;cursor:default}
-    .cell{width:64px;height:64px;border:1px solid rgba(0,0,0,0.2);box-sizing:border-box;position:relative}
-    .grass{background:#3d9e4c}.sand{background:#d9c98b}.gravel{background:#888}
-    .spell{position:absolute;width:64px;height:64px;top:0;left:0;opacity:.85;animation:fadeOut .4s forwards;z-index:5;pointer-events:none}
-    .spell.sd{background:radial-gradient(circle,#ff5722 0%,transparent 70%)}.spell.uh{background:radial-gradient(circle,#2ecc71 0%,transparent 70%)}.spell.miss{background:radial-gradient(circle,#aaa 0%,transparent 70%)}
-    @keyframes fadeOut{from{opacity:.85}to{opacity:0}}
-    .sidebar{width:260px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;height:1024px;padding:20px 0}
-    .scoreboard{font-size:20px;font-weight:bold;text-align:center;margin-bottom:20px}
-    .hp-bar-container{width:180px;height:20px;background:#333;border:2px solid #555;position:relative;margin-bottom:20px}
-    .hp-bar{height:100%;background:red;width:100%;transition:width .3s}
-    .buttons{display:flex;flex-direction:column;gap:20px;align-items:center}
-    button{width:160px;padding:12px;font-size:18px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;transition:background .2s}
-    .sd-btn{background:#c0392b;color:#fff}.sd-btn:hover{background:#e74c3c}
-    .uh-btn{background:#27ae60;color:#fff}.uh-btn:hover{background:#2ecc71}
-    .mage{position:absolute;width:64px;height:64px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;transition:left .08s linear,top .08s linear;z-index:4;pointer-events:none}
-    .mage .hair{width:30px;height:16px;border-radius:4px;margin-top:6px}
-    .mage .robe{width:40px;height:38px;border-radius:6px;margin-top:2px}
-    .nickname{position:absolute;top:-35px;font-size:14px;font-weight:bold;color:#fff;text-shadow:1px 1px 2px #000;white-space:nowrap}
-    .floating-hp{position:absolute;top:-18px;width:64px;height:6px;background:#333;border:1px solid #555}
-    .floating-hp-bar{height:100%;background:red;width:100%;transition:width .3s}
-    .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);display:flex;justify-content:center;align-items:center;z-index:10;visibility:hidden}
-    .modal-content{background:#222;padding:30px;border-radius:10px;text-align:center;box-shadow:0 0 20px #000}
-    .modal h2{margin:0 0 20px;font-size:28px}
-    .modal button{background:#3498db;color:#fff;font-size:18px;padding:12px 24px;border-radius:8px}
-    .modal button:hover{background:#2980b9}
-    .modal.show{visibility:visible}
-    .countdown{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;font-size:100px;font-weight:bold;color:#fff;z-index:20;visibility:hidden}
-    .countdown.show{visibility:visible}
+    /* ---------- Base layout ---------- */
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #111;
+      font-family: Arial, sans-serif;
+      color: #fff;
+    }
+
+    .container {
+      display: flex;
+      align-items: flex-start;
+      gap: 40px;
+    }
+
+    /* ---------- Board ---------- */
+    .board {
+      width: 1024px;
+      height: 1024px;
+      display: grid;
+      grid-template-columns: repeat(16, 64px);
+      grid-template-rows: repeat(16, 64px);
+      border: 4px solid #333;
+      position: relative;
+      cursor: default;
+      user-select: none;
+    }
+
+    .cell {
+      width: 64px;
+      height: 64px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    /* Terrain (flat colors) */
+    .grass  { background: #3d9e4c; }
+    .sand   { background: #d9c98b; }
+    .gravel { background: #888; }
+
+    /* ---------- Sidebar ---------- */
+    .sidebar {
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      height: 1024px;
+      padding: 20px 0;
+    }
+
+    .scoreboard {
+      font-size: 20px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .hp-bar-container {
+      width: 180px;
+      height: 20px;
+      background: #333;
+      border: 2px solid #555;
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .hp-bar {
+      height: 100%;
+      background: red;
+      width: 100%;
+      transition: width 0.3s;
+    }
+
+    button {
+      width: 160px;
+      padding: 12px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    .sd-btn { background: #c0392b; color: #fff; }
+    .sd-btn:hover { background: #e74c3c; }
+
+    .uh-btn { background: #27ae60; color: #fff; }
+    .uh-btn:hover { background: #2ecc71; }
+
+    /* ---------- Mage(s) ---------- */
+    .mage {
+      position: absolute;
+      width: 64px;
+      height: 64px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      transition: left 0.08s linear, top 0.08s linear;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .mage .hair {
+      width: 30px;
+      height: 16px;
+      border-radius: 4px;
+      margin-top: 6px;
+    }
+
+    .mage .robe {
+      width: 40px;
+      height: 38px;
+      border-radius: 6px;
+      margin-top: 2px;
+    }
+
+    /* Floating nickname and HP */
+    .nickname {
+      position: absolute;
+      top: -35px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 1px 1px 2px #000;
+      white-space: nowrap;
+    }
+
+    .floating-hp {
+      position: absolute;
+      top: -18px;
+      width: 64px;
+      height: 6px;
+      background: #333;
+      border: 1px solid #555;
+    }
+
+    .floating-hp-bar {
+      height: 100%;
+      background: red;
+      width: 100%;
+      transition: width 0.3s;
+    }
+
+    /* ---------- Spell effects ---------- */
+    .spell {
+      position: absolute;
+      width: 64px;
+      height: 64px;
+      top: 0; left: 0;
+      opacity: 0.85;
+      animation: fadeOut 0.4s forwards;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .spell.sd   { background: radial-gradient(circle, #ff5722 0%, transparent 70%); }
+    .spell.uh   { background: radial-gradient(circle, #2ecc71 0%, transparent 70%); }
+    .spell.miss { background: radial-gradient(circle, #aaaaaa 0%, transparent 70%); }
+
+    @keyframes fadeOut {
+      from { opacity: 0.85; }
+      to   { opacity: 0; }
+    }
+
+    /* ---------- Modal ---------- */
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      visibility: hidden; /* toggled via .show */
+    }
+    .modal.show { visibility: visible; }
+
+    .modal-content {
+      background: #222;
+      padding: 30px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 0 20px #000;
+    }
+    .modal h2 {
+      margin: 0 0 20px;
+      font-size: 28px;
+    }
+    .modal button {
+      background: #3498db;
+      color: white;
+      font-size: 18px;
+      padding: 12px 24px;
+      border-radius: 8px;
+    }
+    .modal button:hover {
+      background: #2980b9;
+    }
+
+    /* ---------- Countdown ---------- */
+    .countdown {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 100px;
+      font-weight: bold;
+      color: #fff;
+      z-index: 20;
+      visibility: hidden; /* toggled via .show */
+    }
+    .countdown.show { visibility: visible; }
   </style>
 </head>
 <body>
   <div class="container">
+    <!-- Board -->
     <div class="board" id="board"></div>
+
+    <!-- Sidebar -->
     <div class="sidebar">
-      <div class="scoreboard" id="scoreboard">Waiting for players...</div>
+      <div class="scoreboard" id="scoreboard">Waiting for players…</div>
       <div class="buttons">
         <div class="hp-bar-container"><div class="hp-bar" id="hpBar"></div></div>
         <button class="sd-btn" id="sdBtn">🔥 SD Rune</button>
@@ -50,138 +253,362 @@
     </div>
   </div>
 
-  <div class="modal" id="modal">
+  <!-- Modal (unified: waiting / start / next round) -->
+  <div class="modal show" id="modal">
     <div class="modal-content">
       <h2 id="modalMessage">Waiting for opponent…</h2>
       <button id="startBtn">Start Game</button>
     </div>
   </div>
 
+  <!-- Countdown -->
   <div class="countdown" id="countdown">3</div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const board=document.getElementById('board');
-    const modal=document.getElementById('modal');
-    const modalMessage=document.getElementById('modalMessage');
-    const startBtn=document.getElementById('startBtn');
-    const countdown=document.getElementById('countdown');
-    const hpBar=document.getElementById('hpBar');
-    const scoreboard=document.getElementById('scoreboard');
-    const terrains=['grass','sand','gravel'];
+    /********************
+     * Setup & Elements *
+     ********************/
+    const board        = document.getElementById('board');
+    const modal        = document.getElementById('modal');
+    const modalMessage = document.getElementById('modalMessage');
+    const startBtn     = document.getElementById('startBtn');
+    const countdownEl  = document.getElementById('countdown');
+    const hpBar        = document.getElementById('hpBar');
+    const scoreboard   = document.getElementById('scoreboard');
 
-    for(let i=0;i<16*16;i++){
-      const cell=document.createElement('div');
-      cell.classList.add('cell',terrains[Math.floor(Math.random()*terrains.length)]);
-      cell.dataset.index=i;board.appendChild(cell);
+    const terrains = ['grass', 'sand', 'gravel'];
+    const robeColors = ['#3498db', '#8e44ad', '#e67e22', '#2ecc71', '#f39c12'];
+    const hairColors = ['#fff', '#ffcc00', '#000', '#c0392b', '#95a5a6'];
+    const rand = arr => arr[Math.floor(Math.random() * arr.length)];
+
+    // Build 16x16 terrain board
+    for (let i = 0; i < 16 * 16; i++) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell', terrains[Math.floor(Math.random() * terrains.length)]);
+      cell.dataset.index = i;
+      board.appendChild(cell);
     }
 
-    const urlParams=new URLSearchParams(window.location.search);
-    const roomId=urlParams.get("room");
-    const nickname=urlParams.get("nick");
-    const action=urlParams.get("action");
+    // Query params: room, nickname, and whether we create or join
+    const params   = new URLSearchParams(location.search);
+    const roomId   = params.get('room');
+    const myNick   = params.get('nick') || 'Player';
+    const action   = params.get('action'); // "create" or "join"
 
-    const socket=io();
-    let opponentNick=null, opponentMage=null, opponentX=0, opponentY=0;
+    // Socket
+    const socket = io();
 
-    if(action==="create"){
-      socket.emit("createRoom",{roomId,nickname},(res)=>{if(!res.success){alert(res.message);window.location.href="/";}});
-    } else if(action==="join"){
-      socket.emit("joinRoom",{roomId,nickname},(res)=>{if(!res.success){alert(res.message);window.location.href="/";}});
+    // Opponent visuals/state
+    let oppNick = null;
+    let oppMage = null;
+    let oppX = 8, oppY = 8;
+    let oppHP = 100;
+
+    // My visuals/state
+    const cellSize = 64;
+    let myX = 5, myY = 5;
+    let myHP = 100;
+    let myScore = 0;
+    let oppScore = 0;
+
+    // Movement timing (your requested values)
+    const MOVE_COOLDOWN = 200; // ms
+    const MOVE_TIME = 100;     // ms
+    let isMoving = false;
+    let lastMoveTime = 0;
+    let gameActive = false;
+
+    // Create my mage
+    const myMage = document.createElement('div');
+    myMage.className = 'mage';
+    myMage.innerHTML = `
+      <div class="nickname">${myNick}</div>
+      <div class="floating-hp"><div class="floating-hp-bar" id="myHpFloat"></div></div>
+      <div class="hair" style="background:${rand(hairColors)}"></div>
+      <div class="robe" style="background:${rand(robeColors)}"></div>
+    `;
+    board.appendChild(myMage);
+
+    // Maybe-opponent mage (added when second player detected)
+    function ensureOpponentMage() {
+      if (oppMage) return;
+      oppMage = document.createElement('div');
+      oppMage.className = 'mage';
+      oppMage.innerHTML = `
+        <div class="nickname" id="oppNickAbove">${oppNick || 'Opponent'}</div>
+        <div class="floating-hp"><div class="floating-hp-bar" id="oppHpFloat"></div></div>
+        <div class="hair" style="background:${rand(hairColors)}"></div>
+        <div class="robe" style="background:${rand(robeColors)}"></div>
+      `;
+      board.appendChild(oppMage);
+      setEntityPos(oppMage, oppX, oppY);
     }
 
-    socket.on("roomReady",({players})=>{
-      const names=players.map(p=>p.nickname);
-      opponentNick=names.find(n=>n!==nickname);
-      scoreboard.textContent=`${nickname} 0 : 0 ${opponentNick}`;
-      modalMessage.textContent="Both players are here!";
-      modal.classList.add("show");
+    // Helpers to position mages & update HP
+    function setEntityPos(el, x, y) {
+      el.style.left = (x * cellSize) + 'px';
+      el.style.top  = (y * cellSize) + 'px';
+    }
 
-      opponentMage=document.createElement('div');
-      opponentMage.classList.add('mage');
-      opponentMage.innerHTML=`<div class="nickname">${opponentNick}</div>
-        <div class="floating-hp"><div class="floating-hp-bar"></div></div>
-        <div class="hair" style="background:#ccc"></div>
-        <div class="robe" style="background:#666"></div>`;
-      board.appendChild(opponentMage);
-    });
+    function updateMyPos() {
+      setEntityPos(myMage, myX, myY);
+    }
+    updateMyPos();
 
-    socket.on("opponentLeft",()=>{alert("Opponent left.");window.location.href="/";});
+    const myHpFloat  = document.getElementById('myHpFloat');
+    let   oppHpFloat = null;
 
-    // === Local Mage ===
-    const mage=document.createElement('div');
-    mage.classList.add('mage');
-    mage.innerHTML=`<div class="nickname">${nickname}</div>
-      <div class="floating-hp"><div class="floating-hp-bar" id="floatingHpBar"></div></div>
-      <div class="hair" style="background:#fff"></div>
-      <div class="robe" style="background:#3498db"></div>`;
-    board.appendChild(mage);
+    function syncHPBars() {
+      hpBar.style.width   = myHP + '%';
+      myHpFloat.style.width = myHP + '%';
+      if (!oppHpFloat) oppHpFloat = document.getElementById('oppHpFloat');
+      if (oppHpFloat)  oppHpFloat.style.width = oppHP + '%';
+    }
+    syncHPBars();
 
-    let mageX=5,mageY=5;const cellSize=64;
-    function updateMage(){mage.style.left=mageX*cellSize+'px';mage.style.top=mageY*cellSize+'px';}
-    updateMage();
+    function updateScoreboard() {
+      const left  = `${myNick} ${myScore}`;
+      const right = `${oppScore} ${oppNick || 'Waiting...'}`;
+      scoreboard.textContent = `${left} : ${right}`;
+    }
+    updateScoreboard();
 
-    let hp=100;
-    const floatingHpBar=document.getElementById('floatingHpBar');
-    function updateHP(){hpBar.style.width=hp+"%";floatingHpBar.style.width=hp+"%";}
-    updateHP();
-
-    // Movement
-    const moves={'KeyW':[0,-1],'KeyS':[0,1],'KeyA':[-1,0],'KeyD':[1,0],'KeyQ':[-1,-1],'KeyE':[1,-1],'KeyZ':[-1,1],'KeyC':[1,1]};
-    let lastMoveTime=0,isMoving=false,gameActive=false;
-    window.addEventListener('keydown',(e)=>{
-      if(!gameActive) return;
-      if(moves[e.code]&&!isMoving){
-        const now=Date.now();
-        if(now-lastMoveTime<200) return;
-        let[dx,dy]=moves[e.code];
-        let newX=Math.max(0,Math.min(15,mageX+dx));
-        let newY=Math.max(0,Math.min(15,mageY+dy));
-        if(newX!==mageX||newY!==mageY){
-          mageX=newX;mageY=newY;
-          isMoving=true;
-          updateMage();
-          socket.emit("playerMove",{roomId,x:mageX,y:mageY});
-          setTimeout(()=>{isMoving=false;lastMoveTime=Date.now();},100);
+    /**********************
+     * Room create / join *
+     **********************/
+    if (action === 'create') {
+      socket.emit('createRoom', { roomId, nickname: myNick }, (res) => {
+        if (!res || !res.success) {
+          alert(res?.message || 'Failed to create room');
+          location.href = '/';
+        } else {
+          // Show waiting modal (already shown by default)
+          modalMessage.textContent = 'Waiting for opponent…';
+          modal.classList.add('show');
         }
+      });
+    } else if (action === 'join') {
+      socket.emit('joinRoom', { roomId, nickname: myNick }, (res) => {
+        if (!res || !res.success) {
+          alert(res?.message || 'Failed to join room');
+          location.href = '/';
+        } else {
+          // If creator is present, server may immediately emit roomReady
+          // Otherwise, we wait. Keep modal visible.
+          modalMessage.textContent = 'Connecting…';
+          modal.classList.add('show');
+        }
+      });
+    } else {
+      // If no action, bounce back
+      alert('Missing action. Please use the lobby to enter a room.');
+      location.href = '/';
+    }
+
+    /*************************
+     * Room / opponent wires *
+     *************************/
+    // Server tells us both players are present
+    socket.on('roomReady', ({ players }) => {
+      const names = players.map(p => p.nickname);
+      oppNick = names.find(n => n !== myNick) || 'Opponent';
+      ensureOpponentMage();
+      const oppLabel = oppMage.querySelector('#oppNickAbove');
+      if (oppLabel) oppLabel.textContent = oppNick;
+
+      modalMessage.textContent = 'Both players are here! Press Start Game';
+      modal.classList.add('show');
+
+      // Show names on scoreboard
+      updateScoreboard();
+    });
+
+    socket.on('opponentLeft', () => {
+      gameActive = false;
+      alert('Opponent left. Returning to lobby.');
+      location.href = '/';
+    });
+
+    /****************
+     * Local moves  *
+     ****************/
+    const moveKeys = {
+      'KeyW': [0, -1], 'KeyS': [0,  1],
+      'KeyA': [-1, 0], 'KeyD': [1,  0],
+      'KeyQ': [-1,-1], 'KeyE': [1, -1],
+      'KeyZ': [-1, 1], 'KeyC': [1,  1],
+    };
+
+    window.addEventListener('keydown', (e) => {
+      if (!gameActive) return;
+      const mv = moveKeys[e.code];
+      if (!mv || isMoving) return;
+
+      const now = Date.now();
+      if (now - lastMoveTime < MOVE_COOLDOWN) return;
+
+      const [dx, dy] = mv;
+      const nx = Math.max(0, Math.min(15, myX + dx));
+      const ny = Math.max(0, Math.min(15, myY + dy));
+      if (nx === myX && ny === myY) return;
+
+      // Apply local move
+      isMoving = true;
+      myX = nx; myY = ny;
+      updateMyPos();
+
+      // Tell server (if your server relays this, opponent will see movement)
+      socket.emit('playerMove', { roomId, x: myX, y: myY });
+
+      setTimeout(() => {
+        isMoving = false;
+        lastMoveTime = Date.now();
+      }, MOVE_TIME);
+    });
+
+    // Opponent movement (supported if your server relays 'updateOpponentPosition')
+    socket.on('updateOpponentPosition', ({ x, y }) => {
+      ensureOpponentMage();
+      oppX = x; oppY = y;
+      setEntityPos(oppMage, oppX, oppY);
+    });
+
+    /****************
+     * Rune casting *
+     ****************/
+    let selectedRune = null;
+
+    const sdBtn = document.getElementById('sdBtn');
+    const uhBtn = document.getElementById('uhBtn');
+
+    sdBtn.addEventListener('click', () => {
+      if (!gameActive) return;
+      selectedRune = 'sd';
+      board.style.cursor = 'crosshair';
+    });
+
+    uhBtn.addEventListener('click', () => {
+      if (!gameActive) return;
+      selectedRune = 'uh';
+      board.style.cursor = 'crosshair';
+    });
+
+    function addSpellEffectOnCell(x, y, cls) {
+      const idx = y * 16 + x;
+      const cell = board.children[idx];
+      if (!cell || !cell.classList.contains('cell')) return;
+      const fx = document.createElement('div');
+      fx.className = `spell ${cls}`;
+      cell.appendChild(fx);
+      setTimeout(() => fx.remove(), 400);
+    }
+
+    function addSpellEffectOnEntity(el, cls) {
+      const fx = document.createElement('div');
+      fx.className = `spell ${cls}`;
+      el.appendChild(fx);
+      setTimeout(() => fx.remove(), 400);
+    }
+
+    board.addEventListener('click', (e) => {
+      if (!gameActive || !selectedRune) return;
+
+      const rect = board.getBoundingClientRect();
+      const gx = Math.floor((e.clientX - rect.left) / cellSize);
+      const gy = Math.floor((e.clientY - rect.top) / cellSize);
+
+      // Local immediate feedback
+      let effect = 'miss';
+      if (gx === myX && gy === myY) {
+        effect = selectedRune;
+        if (selectedRune === 'sd') myHP = Math.max(0, myHP - 40);
+        if (selectedRune === 'uh') myHP = Math.min(100, myHP + 40);
+        syncHPBars();
+        addSpellEffectOnEntity(myMage, effect);
+      } else {
+        addSpellEffectOnCell(gx, gy, 'miss');
+      }
+
+      // Tell server (if server relays, opponent will see it)
+      socket.emit('castRune', { roomId, type: selectedRune, targetX: gx, targetY: gy });
+
+      // consume rune / reset cursor
+      selectedRune = null;
+      board.style.cursor = 'default';
+    });
+
+    // Opponent rune effect (if server relays 'opponentCastRune')
+    socket.on('opponentCastRune', ({ type, targetX, targetY }) => {
+      // Visual feedback only (HP remains local-only unless you add authoritative logic server-side)
+      if (oppMage && type === 'sd' && targetX === oppX && targetY === oppY) {
+        addSpellEffectOnEntity(oppMage, 'sd');
+      } else if (oppMage && type === 'uh' && targetX === oppX && targetY === oppY) {
+        addSpellEffectOnEntity(oppMage, 'uh');
+      } else {
+        addSpellEffectOnCell(targetX, targetY, 'miss');
       }
     });
 
-    socket.on("updateOpponentPosition",({x,y})=>{
-      opponentX=x;opponentY=y;
-      if(opponentMage){opponentMage.style.left=x*cellSize+'px';opponentMage.style.top=y*cellSize+'px';}
+    /****************
+     * Round system *
+     ****************/
+    function showModal(msg, showBtn = true) {
+      modalMessage.textContent = msg;
+      startBtn.style.display = showBtn ? 'inline-block' : 'none';
+      modal.classList.add('show');
+    }
+
+    function hideModal() {
+      modal.classList.remove('show');
+    }
+
+    function startCountdown(cb) {
+      let n = 3;
+      countdownEl.textContent = n;
+      countdownEl.classList.add('show');
+      const t = setInterval(() => {
+        n--;
+        if (n > 0) {
+          countdownEl.textContent = n;
+        } else if (n === 0) {
+          countdownEl.textContent = 'GO!';
+        } else {
+          clearInterval(t);
+          countdownEl.classList.remove('show');
+          cb && cb();
+        }
+      }, 1000);
+    }
+
+    function randomRespawn() {
+      myX = Math.floor(Math.random() * 16);
+      myY = Math.floor(Math.random() * 16);
+      updateMyPos();
+    }
+
+    function startRoundLocal() {
+      // Reset local HP & position (server-authoritative can be added later)
+      myHP = 100;
+      syncHPBars();
+      randomRespawn();
+
+      // Optionally inform opponent of your first position:
+      socket.emit('playerMove', { roomId, x: myX, y: myY });
+
+      startCountdown(() => {
+        gameActive = true;
+      });
+    }
+
+    // Start button in modal (client-side start; both players will press theirs)
+    startBtn.addEventListener('click', () => {
+      hideModal();
+      startRoundLocal();
     });
 
-    // Rune casting
-    let selectedRune=null;
-    document.getElementById('sdBtn').onclick=()=>{if(!gameActive)return;selectedRune='sd';board.style.cursor='crosshair';};
-    document.getElementById('uhBtn').onclick=()=>{if(!gameActive)return;selectedRune='uh';board.style.cursor='crosshair';};
-
-    board.addEventListener('click',(e)=>{
-      if(!selectedRune||!gameActive) return;
-      const rect=board.getBoundingClientRect();
-      const x=Math.floor((e.clientX-rect.left)/cellSize);
-      const y=Math.floor((e.clientY-rect.top)/cellSize);
-      let effectType='miss';
-      if(x===mageX&&y===mageY){
-        effectType=selectedRune;
-        if(selectedRune==='sd'){hp=Math.max(0,hp-40);}else if(selectedRune==='uh'){hp=Math.min(100,hp+40);}
-        updateHP();
-      }
-      const index=y*16+x;const effectTarget=board.children[index];
-      const spell=document.createElement('div');spell.classList.add('spell',effectType);effectTarget.appendChild(spell);setTimeout(()=>spell.remove(),400);
-      socket.emit("castRune",{roomId,type:selectedRune,targetX:x,targetY:y});
-      selectedRune=null;board.style.cursor='default';
-    });
-
-    socket.on("opponentCastRune",({type,targetX,targetY})=>{
-      const index=targetY*16+targetX;
-      const effectTarget=board.children[index];
-      const spell=document.createElement('div');spell.classList.add('spell',type||'miss');effectTarget.appendChild(spell);
-      setTimeout(()=>spell.remove(),400);
-    });
-
-    // Countdown
-    function startCountdown(callback){
-      let count=3;countdown.textContent=count;countdown.classList.add('show');
-      const interval=setInterval(()=>{count--;if(count>0){countdown.textContent=count;}else if(count===0
+    // Ensure modal is visible on load with a clear message
+    showModal('Waiting for opponent…', true);
+  </script>
+</body>
+</html>
