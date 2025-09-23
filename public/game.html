@@ -1,59 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>PVP Trainer — Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body{margin:0;height:100vh;display:flex;justify-content:center;align-items:center;background:#111;font-family:Arial,sans-serif;color:#fff}
     .container{display:flex;align-items:flex-start;gap:40px}
     .board{width:1024px;height:1024px;display:grid;grid-template-columns:repeat(16,64px);grid-template-rows:repeat(16,64px);border:4px solid #333;position:relative;cursor:default}
-    .cell{width:64px;height:64px;border:1px solid rgba(0,0,0,0.2);box-sizing:border-box;position:relative}
+    .cell{width:64px;height:64px;border:1px solid rgba(0,0,0,.2);box-sizing:border-box;position:relative}
     .grass{background:#3d9e4c}.sand{background:#d9c98b}.gravel{background:#888}
     .spell{position:absolute;width:64px;height:64px;top:0;left:0;opacity:.85;animation:fadeOut .4s forwards;z-index:5;pointer-events:none}
-    .spell.sd{background:radial-gradient(circle,#ff5722 0%,transparent 70%)}.spell.uh{background:radial-gradient(circle,#2ecc71 0%,transparent 70%)}.spell.miss{background:radial-gradient(circle,#aaa 0%,transparent 70%)}
+    .spell.sd{background:radial-gradient(circle,#ff5722 0%,transparent 70%)}
+    .spell.uh{background:radial-gradient(circle,#2ecc71 0%,transparent 70%)}
+    .spell.miss{background:radial-gradient(circle,#aaaaaa 0%,transparent 70%)}
     @keyframes fadeOut{from{opacity:.85}to{opacity:0}}
+
     .sidebar{width:260px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;height:1024px;padding:20px 0}
     .scoreboard{font-size:20px;font-weight:bold;text-align:center;margin-bottom:20px}
     .hp-bar-container{width:180px;height:20px;background:#333;border:2px solid #555;position:relative;margin-bottom:20px}
     .hp-bar{height:100%;background:red;width:100%;transition:width .3s}
+
     .buttons{display:flex;flex-direction:column;gap:20px;align-items:center}
     button{width:160px;padding:12px;font-size:18px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;transition:background .2s}
     .sd-btn{background:#c0392b;color:#fff}.sd-btn:hover{background:#e74c3c}
     .uh-btn{background:#27ae60;color:#fff}.uh-btn:hover{background:#2ecc71}
-    .mage{position:absolute;width:64px;height:64px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;transition:left .08s linear,top .08s linear;z-index:4;pointer-events:none}
-    .mage .hair{width:30px;height:16px;border-radius:4px;margin-top:6px}
-    .mage .robe{width:40px;height:38px;border-radius:6px;margin-top:2px}
+    .ready-btn{background:#8e44ad;color:#fff}.ready-btn:hover{background:#9b59b6}
+
+    .mage,.enemy{position:absolute;width:64px;height:64px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;transition:left .08s linear,top .08s linear;z-index:4;pointer-events:none}
+    .hair{width:30px;height:16px;border-radius:4px;margin-top:6px}
+    .robe{width:40px;height:38px;border-radius:6px;margin-top:2px}
+    .enemy{border:2px solid yellow}
+
     .nickname{position:absolute;top:-35px;font-size:14px;font-weight:bold;color:#fff;text-shadow:1px 1px 2px #000;white-space:nowrap}
     .floating-hp{position:absolute;top:-18px;width:64px;height:6px;background:#333;border:1px solid #555}
     .floating-hp-bar{height:100%;background:red;width:100%;transition:width .3s}
+
     .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);display:flex;justify-content:center;align-items:center;z-index:10;visibility:hidden}
+    .modal.show{visibility:visible}
     .modal-content{background:#222;padding:30px;border-radius:10px;text-align:center;box-shadow:0 0 20px #000}
     .modal h2{margin:0 0 20px;font-size:28px}
     .modal button{background:#3498db;color:#fff;font-size:18px;padding:12px 24px;border-radius:8px}
     .modal button:hover{background:#2980b9}
-    .modal.show{visibility:visible}
+
     .countdown{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;font-size:100px;font-weight:bold;color:#fff;z-index:20;visibility:hidden}
     .countdown.show{visibility:visible}
+    #readyBtn {
+  display: none !important;
+}
+
   </style>
 </head>
 <body>
   <div class="container">
     <div class="board" id="board"></div>
+
     <div class="sidebar">
-      <div class="scoreboard" id="scoreboard">Waiting for players...</div>
+      <div class="scoreboard" id="scoreboard">Player1 0 : 0 Player2</div>
       <div class="buttons">
         <div class="hp-bar-container"><div class="hp-bar" id="hpBar"></div></div>
         <button class="sd-btn" id="sdBtn">🔥 SD Rune</button>
         <button class="uh-btn" id="uhBtn">💚 UH Rune</button>
+        <button class="ready-btn" id="readyBtn">✅ Ready</button>
       </div>
       <div></div>
     </div>
   </div>
 
-  <div class="modal show" id="modal">
+  <div class="modal" id="modal">
     <div class="modal-content">
       <h2 id="modalMessage">Waiting for opponent…</h2>
-      <button id="startBtn">Start Game</button>
+      <button id="startBtn">Ready</button>
     </div>
   </div>
 
@@ -61,130 +78,282 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const board=document.getElementById('board');
-    const modal=document.getElementById('modal');
-    const modalMessage=document.getElementById('modalMessage');
-    const startBtn=document.getElementById('startBtn');
-    const countdown=document.getElementById('countdown');
-    const hpBar=document.getElementById('hpBar');
-    const scoreboard=document.getElementById('scoreboard');
-    const terrains=['grass','sand','gravel'];
+    // ======= Setup and helpers =======
+    const terrains = ['grass','sand','gravel'];
+    const robeColors = ['#3498db','#8e44ad','#e67e22','#2ecc71','#f39c12'];
+    const hairColors = ['#fff','#ffcc00','#000','#c0392b','#95a5a6'];
+    const rand = arr => arr[Math.floor(Math.random()*arr.length)];
+    const board = document.getElementById('board');
+    const hpBar = document.getElementById('hpBar');
+    const scoreboard = document.getElementById('scoreboard');
+    const modal = document.getElementById('modal');
+    const modalMessage = document.getElementById('modalMessage');
+    const startBtn = document.getElementById('startBtn');
+    const readyBtn = document.getElementById('readyBtn');
+    const countdown = document.getElementById('countdown');
+    const cellSize = 64;
 
-    for(let i=0;i<16*16;i++){
+    // Build board
+    for (let i=0;i<16*16;i++){
       const cell=document.createElement('div');
-      cell.classList.add('cell',terrains[Math.floor(Math.random()*terrains.length)]);
+      cell.className = `cell ${terrains[Math.floor(Math.random()*terrains.length)]}`;
+      cell.dataset.index = i;
       board.appendChild(cell);
     }
 
-    const urlParams=new URLSearchParams(window.location.search);
-    const roomId=urlParams.get("room");
-    const nickname=urlParams.get("nick");
-    const action=urlParams.get("action");
+    // URL params
+    const params = new URLSearchParams(location.search);
+    const roomId = params.get('room');
+    const myNick = params.get('nick') || 'Player';
 
-    const socket=io();
-    let opponentNick=null, opponentMage=null, opponentX=15, opponentY=15;
+    // Socket
+    const socket = io();
 
-    if(action==="create"){
-      socket.emit("createRoom",{roomId,nickname},(res)=>{if(!res.success){alert(res.message);window.location.href="/";}});
-    } else if(action==="join"){
-      socket.emit("joinRoom",{roomId,nickname},(res)=>{if(!res.success){alert(res.message);window.location.href="/";}});
+    // ======= Local player state =======
+    let myId = null;
+    let myX = 5, myY = 5, myHP = 100, myScore = 0;
+    let isMoving = false, lastMoveTime = 0;
+    const MOVE_COOLDOWN = 150; // ms
+    const MOVE_TIME = 80;      // ms
+    let gameActive = false;
+    let selectedRune = null;
+
+    // ======= Opponent state =======
+    let oppId = null;
+    let oppNick = "Player2";
+    let oppX = 10, oppY = 10, oppHP = 100, oppScore = 0;
+
+    // ======= UI: create my mage and opponent mage =======
+    const myMage = document.createElement('div');
+    myMage.className = 'mage';
+    myMage.innerHTML = `
+      <div class="nickname" id="myNickAbove"></div>
+      <div class="floating-hp"><div class="floating-hp-bar" id="myHpFloat"></div></div>
+      <div class="hair" style="background:${rand(hairColors)}"></div>
+      <div class="robe" style="background:${rand(robeColors)}"></div>
+    `;
+    board.appendChild(myMage);
+    document.getElementById('myNickAbove').textContent = myNick;
+
+    const oppMage = document.createElement('div');
+    oppMage.className = 'enemy';
+    oppMage.style.display = 'none';
+    oppMage.innerHTML = `
+      <div class="nickname" id="oppNickAbove"></div>
+      <div class="floating-hp"><div class="floating-hp-bar" id="oppHpFloat"></div></div>
+      <div class="hair" style="background:${rand(hairColors)}"></div>
+      <div class="robe" style="background:${rand(robeColors)}"></div>
+    `;
+    board.appendChild(oppMage);
+
+    const myHpFloat = document.getElementById('myHpFloat');
+    const oppHpFloat = document.getElementById('oppHpFloat');
+
+    function setMagePos(el, x, y){ el.style.left = (x*cellSize)+'px'; el.style.top = (y*cellSize)+'px'; }
+    function syncHPBars(){ hpBar.style.width = myHP+'%'; myHpFloat.style.width = myHP+'%'; oppHpFloat.style.width = oppHP+'%'; }
+    function updateScoreboard(){
+      const left = `${myNick} ${myScore}`;
+      const right = `${oppScore} ${oppNick||'Waiting...'}`;
+      scoreboard.textContent = `${left} : ${right}`;
     }
 
-    socket.on("roomReady",({players})=>{
-      const names=players.map(p=>p.nickname);
-      opponentNick=names.find(n=>n!==nickname);
-      scoreboard.textContent=`${nickname} 0 : 0 ${opponentNick}`;
-      modalMessage.textContent="Both players are here!";
-      modal.classList.add("show");
+    // ======= Movement input (client animation + server sync) =======
+    const moves = {
+      'KeyW':[0,-1],'KeyS':[0,1],'KeyA':[-1,0],'KeyD':[1,0],
+      'KeyQ':[-1,-1],'KeyE':[1,-1],'KeyZ':[-1,1],'KeyC':[1,1],
+    };
 
-      opponentMage=document.createElement('div');
-      opponentMage.classList.add('mage');
-      opponentMage.innerHTML=`<div class="nickname">${opponentNick}</div>
-        <div class="floating-hp"><div class="floating-hp-bar"></div></div>
-        <div class="hair" style="background:#ccc"></div>
-        <div class="robe" style="background:#666"></div>`;
-      board.appendChild(opponentMage);
-      opponentMage.style.left=opponentX*64+"px";
-      opponentMage.style.top=opponentY*64+"px";
+    window.addEventListener('keydown', (e)=>{
+      if (!gameActive) return;
+      if (!moves[e.code] || isMoving) return;
+      const now = Date.now();
+      if (now - lastMoveTime < MOVE_COOLDOWN) return;
+
+      const [dx, dy] = moves[e.code];
+      const nx = Math.max(0, Math.min(15, myX + dx));
+      const ny = Math.max(0, Math.min(15, myY + dy));
+      if (nx===myX && ny===myY) return;
+
+      isMoving = true;
+      socket.emit('moveStart', { x: nx, y: ny });   // anticipation cell
+      myX = nx; myY = ny;
+      setMagePos(myMage, myX, myY);
+
+      setTimeout(()=>{
+        socket.emit('moveComplete', { x: myX, y: myY });
+        isMoving = false;
+        lastMoveTime = Date.now();
+      }, MOVE_TIME);
     });
 
-    socket.on("opponentLeft",()=>{alert("Opponent left.");window.location.href="/";});
+    // ======= Rune selection / casting =======
+    document.getElementById('sdBtn').onclick = ()=>{ if(!gameActive) return; selectedRune='sd'; board.style.cursor='crosshair'; };
+    document.getElementById('uhBtn').onclick = ()=>{ if(!gameActive) return; selectedRune='uh'; board.style.cursor='crosshair'; };
 
-    const mage=document.createElement('div');
-    mage.classList.add('mage');
-    mage.innerHTML=`<div class="nickname">${nickname}</div>
-      <div class="floating-hp"><div class="floating-hp-bar" id="floatingHpBar"></div></div>
-      <div class="hair" style="background:#fff"></div>
-      <div class="robe" style="background:#3498db"></div>`;
-    board.appendChild(mage);
+    board.addEventListener('click', (e)=>{
+      if (!gameActive || !selectedRune) return;
 
-    let mageX=0,mageY=0;const cellSize=64;
-    function updateMage(){mage.style.left=mageX*cellSize+'px';mage.style.top=mageY*cellSize+'px';}
-    updateMage();
+      const rect = board.getBoundingClientRect();
+      const gx = Math.floor((e.clientX - rect.left)/cellSize);
+      const gy = Math.floor((e.clientY - rect.top)/cellSize);
 
-    let hp=100;
-    const floatingHpBar=document.getElementById('floatingHpBar');
-    function updateHP(){hpBar.style.width=hp+"%";floatingHpBar.style.width=hp+"%";}
-    updateHP();
-
-    const moves={'KeyW':[0,-1],'KeyS':[0,1],'KeyA':[-1,0],'KeyD':[1,0],'KeyQ':[-1,-1],'KeyE':[1,-1],'KeyZ':[-1,1],'KeyC':[1,1]};
-    let lastMoveTime=0,isMoving=false,gameActive=false;
-    window.addEventListener('keydown',(e)=>{
-      if(!gameActive) return;
-      if(moves[e.code]&&!isMoving){
-        const now=Date.now();
-        if(now-lastMoveTime<200) return;
-        let[dx,dy]=moves[e.code];
-        let newX=Math.max(0,Math.min(15,mageX+dx));
-        let newY=Math.max(0,Math.min(15,mageY+dy));
-        if(newX!==mageX||newY!==mageY){
-          mageX=newX;mageY=newY;
-          isMoving=true;
-          updateMage();
-          socket.emit("playerMove",{roomId,x:mageX,y:mageY});
-          setTimeout(()=>{isMoving=false;lastMoveTime=Date.now();},100);
-        }
-      }
+      socket.emit('castRune', { type: selectedRune, targetX: gx, targetY: gy });
+      selectedRune = null;
+      board.style.cursor = 'default';
     });
 
-    socket.on("updateOpponentPosition",({x,y})=>{
-      if(opponentMage){opponentX=x;opponentY=y;opponentMage.style.left=x*64+'px';opponentMage.style.top=y*64+'px';}
-    });
-
-    let selectedRune=null;
-    document.getElementById('sdBtn').onclick=()=>{if(!gameActive)return;selectedRune='sd';board.style.cursor='crosshair';};
-    document.getElementById('uhBtn').onclick=()=>{if(!gameActive)return;selectedRune='uh';board.style.cursor='crosshair';};
-
-    board.addEventListener('click',(e)=>{
-      if(!selectedRune||!gameActive) return;
-      const rect=board.getBoundingClientRect();
-      const x=Math.floor((e.clientX-rect.left)/cellSize);
-      const y=Math.floor((e.clientY-rect.top)/cellSize);
-      let effectType='miss';
-      if(x===mageX&&y===mageY){
-        effectType=selectedRune;
-        if(selectedRune==='sd'){hp=Math.max(0,hp-40);}else if(selectedRune==='uh'){hp=Math.min(100,hp+40);}
-        updateHP();
-      }
-      const index=y*16+x;const effectTarget=board.children[index];
-      const spell=document.createElement('div');spell.classList.add('spell',effectType);effectTarget.appendChild(spell);setTimeout(()=>spell.remove(),400);
-      socket.emit("castRune",{roomId,type:selectedRune,targetX:x,targetY:y});
-      selectedRune=null;board.style.cursor='default';
-    });
-
-    socket.on("opponentCastRune",({type,targetX,targetY})=>{
-      const index=targetY*16+targetX;
-      const effectTarget=board.children[index];
-      const spell=document.createElement('div');spell.classList.add('spell',type||'miss');effectTarget.appendChild(spell);
-      setTimeout(()=>spell.remove(),400);
-    });
-
-    function startCountdown(callback){
-      let count=3;countdown.textContent=count;countdown.classList.add('show');
-      const interval=setInterval(()=>{count--;if(count>0){countdown.textContent=count;}else if(count===0){countdown.textContent="GO!";}else{clearInterval(interval);countdown.classList.remove('show');callback();}},1000);
+    function addSpellEffectOnCell(x,y,cls){
+      const idx = y*16 + x;
+      const cell = board.children[idx];
+      if (!cell || !cell.classList.contains('cell')) return;
+      const s = document.createElement('div'); s.className = `spell ${cls}`;
+      cell.appendChild(s); setTimeout(()=>s.remove(), 400);
+    }
+    function addSpellEffectOnEntity(el, cls){
+      const s = document.createElement('div'); s.className = `spell ${cls}`;
+      el.appendChild(s); setTimeout(()=>s.remove(), 400);
     }
 
-    startBtn.onclick=()=>{modal.classList.remove('show');hp=100;updateHP();mageX=0;mageY=0;updateMage();startCountdown(()=>{gameActive=true;});};
+    // ======= Modal / Countdown =======
+    function showModal(msg, showBtn=false){
+      modalMessage.textContent = msg;
+      startBtn.style.display = showBtn ? 'inline-block' : 'none';
+      modal.classList.add('show');
+    }
+    function hideModal(){ modal.classList.remove('show'); }
+    function doCountdown(seconds, cb){
+      let n = seconds;
+      countdown.textContent = n;
+      countdown.classList.add('show');
+      const int = setInterval(()=>{
+        n--;
+        if (n>0) { countdown.textContent = n; }
+        else if (n===0){ countdown.textContent='GO!'; }
+        else { clearInterval(int); countdown.classList.remove('show'); cb && cb(); }
+      }, 1000);
+    }
+
+    // Ready controls
+    readyBtn.onclick = () => { socket.emit('setReady'); showModal("Waiting for opponent to be ready…"); };
+    startBtn.onclick = () => { socket.emit('setReady'); showModal("Waiting for opponent to be ready…"); };
+
+    // ======= Socket wiring =======
+    socket.emit('enterGame', { roomId, nickname: myNick }, (res)=>{
+      if (!res || !res.success) { showModal(res?.message || "Failed to enter room.", false); return; }
+      myId = res.you.id;
+      if (res.opponent){
+        oppId = res.opponent.id; oppNick = res.opponent.nickname;
+        document.getElementById('oppNickAbove').textContent = oppNick;
+        oppMage.style.display = 'flex';
+      } else {
+        showModal("Waiting for opponent…", true);
+      }
+
+      // Load any known state
+      const st = res.state || {};
+      const myPos = st.pos?.[myId]; if (myPos){ myX=myPos.x; myY=myPos.y; }
+      const oPos = oppId && st.pos?.[oppId]; if (oPos){ oppX=oPos.x; oppY=oPos.y; oppMage.style.display='flex'; }
+      myHP = st.hp?.[myId] ?? 100; oppHP = oppId ? (st.hp?.[oppId] ?? 100): 100;
+      myScore = st.score?.[myId] ?? 0; oppScore = oppId ? (st.score?.[oppId] ?? 0): 0;
+
+      setMagePos(myMage,myX,myY);
+      setMagePos(oppMage,oppX,oppY);
+      syncHPBars();
+      updateScoreboard();
+    });
+
+    socket.on('roomReady', ({ players })=>{
+      // Both present; show Ready button if not ready yet
+      const p2 = players.find(p=>p.id!==myId);
+      if (p2){ oppId = p2.id; oppNick = p2.nickname; document.getElementById('oppNickAbove').textContent=oppNick; oppMage.style.display='flex'; }
+      showModal("Both players present. Click Ready to start!", true);
+      updateScoreboard();
+    });
+
+    socket.on('opponentReady', ()=>{
+      // Informative; our ready triggers round when both set
+      showModal("Opponent is ready. Click Ready if you haven't yet.", true);
+    });
+
+    socket.on('roundCountdown', ({ seconds })=>{
+      hideModal();
+      gameActive = false;
+      doCountdown(seconds, ()=>{ /* roundStart will activate */ });
+    });
+
+    socket.on('roundStart', ({ pos, hp })=>{
+      // Server authoritative start: positions + HP 100
+      const my = pos[myId]; const op = pos[oppId] || {x:10,y:10};
+      myX=my.x; myY=my.y; oppX=op.x; oppY=op.y;
+      myHP = hp[myId]; oppHP = oppId ? hp[oppId] : 100;
+      setMagePos(myMage,myX,myY);
+      setMagePos(oppMage,oppX,oppY);
+      syncHPBars();
+      gameActive = true;
+    });
+
+    // Opponent movement (anticipation + complete)
+    socket.on('opponentMoveStart', ({ x, y })=>{
+      // animate toward next
+      oppX = x; oppY = y;
+      setMagePos(oppMage, oppX, oppY);
+    });
+    socket.on('opponentMoveComplete', ({ x, y })=>{
+      oppX = x; oppY = y;
+      setMagePos(oppMage, oppX, oppY);
+    });
+
+    // Spell resolution from server (authoritative)
+    socket.on('spellResolved', ({ casterId, type, targetX, targetY, hit, hitTargetId, hp, })=>{
+      // Visuals
+      if (hit && hitTargetId){
+        const onMe = (hitTargetId === myId);
+        addSpellEffectOnEntity(onMe ? myMage : oppMage, type); // sd/uh
+      } else {
+        addSpellEffectOnCell(targetX, targetY, 'miss');
+      }
+
+      // HP updates for both
+      if (typeof hp?.[myId] === 'number') myHP = hp[myId];
+      if (oppId && typeof hp?.[oppId] === 'number') oppHP = hp[oppId];
+      syncHPBars();
+    });
+
+    socket.on('roundOver', ({ winnerId, score })=>{
+      gameActive = false;
+      myScore = score?.[myId] ?? myScore;
+      oppScore = oppId ? (score?.[oppId] ?? oppScore) : oppScore;
+      updateScoreboard();
+
+      const won = (winnerId === myId);
+      showModal(won ? "You won the round! Click Ready for next." : "You lost the round! Click Ready for next.", true);
+    });
+
+    socket.on('opponentLeft', ()=>{
+      gameActive = false;
+      showModal("Opponent left the room. Waiting for a new opponent…", false);
+      oppMage.style.display='none';
+      oppHP = 100; oppScore = 0;
+      updateScoreboard();
+      syncHPBars();
+    });
+
+    // ======= Spell click -> add local miss effect instantly for feedback (optional latency mask) =======
+    // (We rely on server 'spellResolved' for the final/authoritative effect & HP)
+    function quickMissPreview(x,y){
+      addSpellEffectOnCell(x,y,'miss');
+    }
+
+    // Clicking the board already sends castRune; if you want local feedback uncomment:
+    // board.addEventListener('click',(e)=>{ /* preview only, server decides final */ });
+
+    // Initial modal
+    showModal("Connecting / Waiting for opponent…", true);
+
+    // Sidebar hp starts full
+    syncHPBars(); updateScoreboard();
+
+    // Board click to cast also needs to compute coords for local preview (already above)
   </script>
 </body>
 </html>
