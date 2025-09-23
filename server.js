@@ -22,18 +22,19 @@ function ensureRoom(roomId) {
 
 function broadcastRooms() {
   const activeRooms = Object.entries(rooms)
-    .filter(([_, r]) => r.players.length > 0)
+    .filter(([_, r]) => r.players.length > 0) // only active rooms
     .map(([id, r]) => ({
       roomId: id,
-      players: r.players.map(pid => r.nick[pid])
+      players: r.players.map(pid => r.nick[pid] || "Unknown")
     }));
+  console.log("Active rooms:", activeRooms); // DEBUG
   io.emit("roomsUpdate", activeRooms);
 }
 
 io.on("connection", (socket) => {
-  console.log("New client connected", socket.id);
+  console.log("✅ New client connected", socket.id);
 
-  // === LOBBY EVENTS ===
+  // === CREATE ROOM ===
   socket.on("createRoom", ({ roomId, nickname }, cb) => {
     if (!roomId || !nickname) return cb({ success: false, message: "Missing room or nickname" });
     ensureRoom(roomId);
@@ -51,10 +52,13 @@ io.on("connection", (socket) => {
 
     socket.join(roomId);
     socket.data.roomId = roomId;
+
+    console.log(`🎮 Room created: ${roomId} by ${nickname}`);
     cb({ success: true });
     broadcastRooms();
   });
 
+  // === JOIN ROOM ===
   socket.on("joinRoom", ({ roomId, nickname }, cb) => {
     const room = rooms[roomId];
     if (!room) return cb({ success: false, message: "Room does not exist" });
@@ -69,6 +73,8 @@ io.on("connection", (socket) => {
     socket.join(roomId);
     socket.data.roomId = roomId;
 
+    console.log(`👤 ${nickname} joined room ${roomId}`);
+
     if (room.players.length === 2) {
       io.to(roomId).emit("roomReady", {
         players: room.players.map((id) => ({ id, nickname: room.nick[id] }))
@@ -79,12 +85,13 @@ io.on("connection", (socket) => {
     broadcastRooms();
   });
 
+  // === GET ROOMS (initial request) ===
   socket.on("getRooms", (cb) => {
     const activeRooms = Object.entries(rooms)
       .filter(([_, r]) => r.players.length > 0)
       .map(([id, r]) => ({
         roomId: id,
-        players: r.players.map(pid => r.nick[pid])
+        players: r.players.map(pid => r.nick[pid] || "Unknown")
       }));
     cb(activeRooms);
   });
@@ -105,12 +112,13 @@ io.on("connection", (socket) => {
 
     if (room.players.length === 0) {
       delete rooms[roomId];
+      console.log(`🗑️ Room ${roomId} removed (empty)`);
     }
 
     broadcastRooms();
-    console.log("Client disconnected", socket.id);
+    console.log("❌ Client disconnected", socket.id);
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
