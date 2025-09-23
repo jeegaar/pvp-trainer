@@ -101,20 +101,10 @@
     function renderRooms(rooms) {
   const c = document.getElementById("roomList");
   c.innerHTML = "";
-      
   if (!rooms || rooms.length === 0) {
     c.textContent = "No active rooms.";
     return;
   }
-      // Add column headers
-const header = document.createElement("div");
-header.style.display = "flex";
-header.style.justifyContent = "space-between";
-header.style.fontWeight = "bold";
-header.style.marginBottom = "6px";
-header.innerHTML = "<span style='flex:1'>Room ID - just copy and paste above!</span><span style='flex:1'>Player 1</span><span style='flex:1'>Player 2</span>";
-c.appendChild(header);
-
 
   const ul = document.createElement("ul");
   rooms.forEach(r => {
