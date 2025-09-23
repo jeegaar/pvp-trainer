@@ -18,8 +18,8 @@ app.use(express.static("public"));
  *     state: {
  *       score: { socketId: 0 },
  *       pos:   { socketId: { x, y } },
- *       next:  { socketId: { x, y } | null }, // moving target during 100ms move
- *       hp:    { socketId: number },          // 0..100
+ *       next:  { socketId: { x, y } | null },
+ *       hp:    { socketId: number },  // 0..100
  *       ready: { socketId: boolean }
  *     }
  *   }
@@ -27,6 +27,7 @@ app.use(express.static("public"));
  */
 const rooms = {};
 
+// === Utility ===
 function ensureRoom(roomId) {
   if (!rooms[roomId]) {
     rooms[roomId] = {
@@ -53,14 +54,32 @@ function broadcastRoom(roomId, event, payload) {
   io.to(roomId).emit(event, payload);
 }
 
+// === NEW: prepare list of active rooms for lobby ===
+function getActiveRooms() {
+  return Object.entries(rooms)
+    .filter(([_, r]) => r.players && r.players.length > 0)
+    .map(([id, r]) => {
+      const nicks = r.players.map(pid => (r.nick && r.nick[pid]) || "Unknown");
+      return {
+        roomId: id,
+        player1: nicks[0] || "Empty slot",
+        player2: nicks[1] || "Empty slot"
+      };
+    });
+}
+
 io.on("connection", (socket) => {
+  // === Allow lobby to fetch room list once ===
+  socket.on("getRooms", (cb) => {
+    cb(getActiveRooms());
+  });
+
   // ===== LOBBY: create / join =====
   socket.on("createRoom", ({ roomId, nickname }, cb) => {
     if (!roomId || !nickname) return cb({ success: false, message: "Missing room or nickname" });
     ensureRoom(roomId);
     const room = rooms[roomId];
 
-    // "taken" = someone is inside. We reset rooms when empty automatically on disconnect.
     if (room.players.length > 0) {
       return cb({ success: false, message: "Room ID already taken" });
     }
@@ -76,6 +95,9 @@ io.on("connection", (socket) => {
     socket.join(roomId);
     socket.data.roomId = roomId;
     cb({ success: true });
+
+    // 🔔 Update lobby
+    io.emit("roomsUpdate", getActiveRooms());
   });
 
   socket.on("joinRoom", ({ roomId, nickname }, cb) => {
@@ -95,18 +117,19 @@ io.on("connection", (socket) => {
     socket.join(roomId);
     socket.data.roomId = roomId;
 
-    // If room now has 2 players, notify both that lobby is ready
     if (room.players.length === 2) {
       broadcastRoom(roomId, "roomReady", {
         players: room.players.map((id) => ({ id, nickname: room.nick[id] }))
       });
     }
     cb({ success: true });
+
+    // 🔔 Update lobby
+    io.emit("roomsUpdate", getActiveRooms());
   });
 
   // ===== GAME PAGE: enter & readiness =====
   socket.on("enterGame", ({ roomId, nickname }, cb) => {
-    // If player hit game.html directly (no lobby), try to attach them
     ensureRoom(roomId);
     const room = rooms[roomId];
     if (!room.players.includes(socket.id)) {
@@ -140,6 +163,9 @@ io.on("connection", (socket) => {
         players: room.players.map((id) => ({ id, nickname: room.nick[id] }))
       });
     }
+
+    // 🔔 Update lobby (in case someone jumps straight to game)
+    io.emit("roomsUpdate", getActiveRooms());
   });
 
   socket.on("setReady", () => {
@@ -149,12 +175,10 @@ io.on("connection", (socket) => {
     if (!room) return;
     room.state.ready[socket.id] = true;
 
-    // If both ready -> countdown, then start round
     const p = room.players;
     if (p.length === 2 && room.state.ready[p[0]] && room.state.ready[p[1]]) {
       broadcastRoom(roomId, "roundCountdown", { seconds: 3 });
       setTimeout(() => {
-        // reset state for round start
         p.forEach((id) => {
           room.state.hp[id] = 100;
           room.state.pos[id] = randomSpawn();
@@ -166,12 +190,11 @@ io.on("connection", (socket) => {
         });
       }, 3000);
     } else {
-      // echo readiness to the other player
       socket.to(roomId).emit("opponentReady");
     }
   });
 
-  // ===== MOVEMENT (with anticipation) =====
+  // ===== MOVEMENT =====
   socket.on("moveStart", ({ x, y }) => {
     const roomId = socket.data.roomId;
     if (!roomId) return;
@@ -192,7 +215,6 @@ io.on("connection", (socket) => {
   });
 
   // ===== SPELLS =====
-  // type: 'sd' | 'uh'; targetX, targetY are grid coords
   socket.on("castRune", ({ type, targetX, targetY }) => {
     const roomId = socket.data.roomId;
     if (!roomId) return;
@@ -204,14 +226,12 @@ io.on("connection", (socket) => {
     let hit = false;
     let hitTarget = null;
 
-    // Self-hit allowed: if target == my current cell
     const myPos = room.state.pos[me];
     if (myPos && myPos.x === targetX && myPos.y === targetY) {
       hit = true;
       hitTarget = me;
     }
 
-    // Opponent hit: exact current or anticipated next cell
     if (opp) {
       const oppPos = room.state.pos[opp];
       const oppNext = room.state.next[opp];
@@ -224,7 +244,6 @@ io.on("connection", (socket) => {
       }
     }
 
-    // Apply effects
     if (hit && hitTarget) {
       if (type === "sd") {
         room.state.hp[hitTarget] = Math.max(0, (room.state.hp[hitTarget] ?? 100) - 40);
@@ -233,7 +252,6 @@ io.on("connection", (socket) => {
       }
     }
 
-    // Notify both clients about the resolved spell (hit or miss)
     broadcastRoom(roomId, "spellResolved", {
       casterId: me,
       type,
@@ -244,7 +262,6 @@ io.on("connection", (socket) => {
       hp: room.state.hp
     });
 
-    // Round over?
     const p = room.players;
     if (p.length === 2 && (room.state.hp[p[0]] <= 0 || room.state.hp[p[1]] <= 0)) {
       const winner = room.state.hp[p[0]] <= 0 ? p[1] : p[0];
@@ -253,7 +270,6 @@ io.on("connection", (socket) => {
         winnerId: winner,
         score: room.state.score
       });
-      // Reset ready; clients will press Ready for next round
       room.state.ready[p[0]] = false;
       room.state.ready[p[1]] = false;
     }
@@ -275,10 +291,12 @@ io.on("connection", (socket) => {
 
     socket.to(roomId).emit("opponentLeft");
 
-    // If empty, nuke room (so its ID becomes available again)
     if (room.players.length === 0) {
       delete rooms[roomId];
     }
+
+    // 🔔 Update lobby
+    io.emit("roomsUpdate", getActiveRooms());
   });
 });
 
