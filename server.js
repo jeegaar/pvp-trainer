@@ -8,35 +8,29 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-const rooms = {}; // { roomId: { players: [], nick: {}, state: {...} } }
+const rooms = {}; // { roomId: { players: [], nick: {} } }
 
 function ensureRoom(roomId) {
   if (!rooms[roomId]) {
-    rooms[roomId] = {
-      players: [],
-      nick: {},
-      state: { score: {}, pos: {}, next: {}, hp: {}, ready: {} }
-    };
+    rooms[roomId] = { players: [], nick: {} };
   }
 }
 
 function broadcastRooms() {
   const activeRooms = Object.entries(rooms)
-    .filter(([_, r]) => r.players.length > 0) // only active rooms
+    .filter(([_, r]) => r.players.length > 0)
     .map(([id, r]) => ({
       roomId: id,
       players: r.players.map(pid => r.nick[pid] || "Unknown")
     }));
-  console.log("Active rooms:", activeRooms); // DEBUG
   io.emit("roomsUpdate", activeRooms);
 }
 
 io.on("connection", (socket) => {
-  console.log("✅ New client connected", socket.id);
+  console.log("✅ Client connected", socket.id);
 
-  // === CREATE ROOM ===
+  // CREATE ROOM
   socket.on("createRoom", ({ roomId, nickname }, cb) => {
-    if (!roomId || !nickname) return cb({ success: false, message: "Missing room or nickname" });
     ensureRoom(roomId);
     const room = rooms[roomId];
 
@@ -46,19 +40,16 @@ io.on("connection", (socket) => {
 
     room.players.push(socket.id);
     room.nick[socket.id] = nickname;
-    room.state.score[socket.id] = 0;
-    room.state.hp[socket.id] = 100;
-    room.state.ready[socket.id] = false;
-
     socket.join(roomId);
     socket.data.roomId = roomId;
+    socket.data.nickname = nickname;
 
     console.log(`🎮 Room created: ${roomId} by ${nickname}`);
     cb({ success: true });
     broadcastRooms();
   });
 
-  // === JOIN ROOM ===
+  // JOIN ROOM
   socket.on("joinRoom", ({ roomId, nickname }, cb) => {
     const room = rooms[roomId];
     if (!room) return cb({ success: false, message: "Room does not exist" });
@@ -66,12 +57,9 @@ io.on("connection", (socket) => {
 
     room.players.push(socket.id);
     room.nick[socket.id] = nickname;
-    room.state.score[socket.id] = 0;
-    room.state.hp[socket.id] = 100;
-    room.state.ready[socket.id] = false;
-
     socket.join(roomId);
     socket.data.roomId = roomId;
+    socket.data.nickname = nickname;
 
     console.log(`👤 ${nickname} joined room ${roomId}`);
 
@@ -85,18 +73,16 @@ io.on("connection", (socket) => {
     broadcastRooms();
   });
 
-  // === GET ROOMS (initial request) ===
-  socket.on("getRooms", (cb) => {
-    const activeRooms = Object.entries(rooms)
-      .filter(([_, r]) => r.players.length > 0)
-      .map(([id, r]) => ({
-        roomId: id,
-        players: r.players.map(pid => r.nick[pid] || "Unknown")
-      }));
-    cb(activeRooms);
+  // === RELAYS ===
+  socket.on("playerMove", ({ roomId, x, y }) => {
+    socket.to(roomId).emit("updateOpponentPosition", { x, y });
   });
 
-  // === DISCONNECT ===
+  socket.on("castRune", ({ roomId, type, targetX, targetY }) => {
+    socket.to(roomId).emit("opponentCastRune", { type, targetX, targetY });
+  });
+
+  // DISCONNECT
   socket.on("disconnect", () => {
     const roomId = socket.data.roomId;
     if (!roomId || !rooms[roomId]) return;
@@ -104,10 +90,6 @@ io.on("connection", (socket) => {
 
     room.players = room.players.filter((id) => id !== socket.id);
     delete room.nick[socket.id];
-    delete room.state.score[socket.id];
-    delete room.state.hp[socket.id];
-    delete room.state.ready[socket.id];
-
     socket.to(roomId).emit("opponentLeft");
 
     if (room.players.length === 0) {
