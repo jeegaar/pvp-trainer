@@ -60,7 +60,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io(); // only used here for room list, not for create/join
+    const socket = io();
 
     function notify(msg, isErr=false){
       const n=document.createElement('div');
@@ -103,13 +103,22 @@
         let players = r.players.join(" vs ");
         if(r.players.length===1){
           div.innerHTML=`<span>Room <b>${r.roomId}</b> (${players})</span>
-            <button onclick="goGame('${r.roomId}', document.getElementById('nickname').value.trim(), 'join')">Join</button>`;
+            <button onclick="tryJoinRoom('${r.roomId}')">Join</button>`;
         } else {
           div.innerHTML=`<span>Room <b>${r.roomId}</b> (${players})</span>
             <span class="full-label">Full</span>`;
         }
         c.appendChild(div);
       });
+    }
+
+    function tryJoinRoom(roomId){
+      const nickname=document.getElementById("nickname").value.trim();
+      if(!nickname){
+        notify("Please enter your nickname before joining a room.", true);
+        return;
+      }
+      goGame(roomId, nickname, "join");
     }
   </script>
 </body>
