@@ -25,6 +25,7 @@
     .room span{font-size:14px}
     .room button{background:#3498db;color:#fff;padding:6px 10px;border-radius:6px;font-size:14px}
     .room button:hover{background:#2980b9}
+    .full-label{color:#aaa;font-size:14px}
   </style>
 </head>
 <body>
@@ -111,7 +112,7 @@
             <button onclick="joinOpenRoom('${r.roomId}')">Join</button>`;
         } else {
           div.innerHTML=`<span>Room <b>${r.roomId}</b> (${players})</span>
-            <span>Full</span>`;
+            <span class="full-label">Full</span>`;
         }
         c.appendChild(div);
       });
