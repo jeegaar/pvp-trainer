@@ -5,6 +5,10 @@
   <title>PVP Trainer — Game</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    .explo-btn{background:#8e44ad;color:#fff}
+    .explo-btn:hover{background:#9b59b6}
+    .spell.explo{background:radial-gradient(circle,#9b59b6 0%,transparent 70%)}
+
     body{margin:0;height:100vh;display:flex;justify-content:center;align-items:center;background:#111;font-family:Arial,sans-serif;color:#fff}
     .container{display:flex;align-items:flex-start;gap:40px}
     .board{width:1024px;height:1024px;display:grid;grid-template-columns:repeat(16,64px);grid-template-rows:repeat(16,64px);border:4px solid #333;position:relative;cursor:default}
@@ -45,10 +49,7 @@
 
     .countdown{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;font-size:100px;font-weight:bold;color:#fff;z-index:20;visibility:hidden}
     .countdown.show{visibility:visible}
-    #readyBtn {
-  display: none !important;
-}
-
+    #readyBtn { display: none !important; }
   </style>
 </head>
 <body>
@@ -61,6 +62,7 @@
         <div class="hp-bar-container"><div class="hp-bar" id="hpBar"></div></div>
         <button class="sd-btn" id="sdBtn">🔥 SD Rune</button>
         <button class="uh-btn" id="uhBtn">💚 UH Rune</button>
+        <button class="explo-btn" id="exploBtn">💜 EXPLO</button>
         <button class="ready-btn" id="readyBtn">✅ Ready</button>
       </div>
       <div></div>
@@ -157,7 +159,7 @@
       scoreboard.textContent = `${left} : ${right}`;
     }
 
-    // ======= Movement input (client animation + server sync) =======
+    // ======= Movement input =======
     const moves = {
       'KeyW':[0,-1],'KeyS':[0,1],'KeyA':[-1,0],'KeyD':[1,0],
       'KeyQ':[-1,-1],'KeyE':[1,-1],'KeyZ':[-1,1],'KeyC':[1,1],
@@ -175,7 +177,7 @@
       if (nx===myX && ny===myY) return;
 
       isMoving = true;
-      socket.emit('moveStart', { x: nx, y: ny });   // anticipation cell
+      socket.emit('moveStart', { x: nx, y: ny });
       myX = nx; myY = ny;
       setMagePos(myMage, myX, myY);
 
@@ -189,10 +191,10 @@
     // ======= Rune selection / casting =======
     document.getElementById('sdBtn').onclick = ()=>{ if(!gameActive) return; selectedRune='sd'; board.style.cursor='crosshair'; };
     document.getElementById('uhBtn').onclick = ()=>{ if(!gameActive) return; selectedRune='uh'; board.style.cursor='crosshair'; };
+    document.getElementById('exploBtn').onclick = ()=>{ if(!gameActive) return; selectedRune='explo'; board.style.cursor='crosshair'; };
 
     board.addEventListener('click', (e)=>{
       if (!gameActive || !selectedRune) return;
-
       const rect = board.getBoundingClientRect();
       const gx = Math.floor((e.clientX - rect.left)/cellSize);
       const gy = Math.floor((e.clientY - rect.top)/cellSize);
@@ -233,7 +235,6 @@
       }, 1000);
     }
 
-    // Ready controls
     readyBtn.onclick = () => { socket.emit('setReady'); showModal("Waiting for opponent to be ready…"); };
     startBtn.onclick = () => { socket.emit('setReady'); showModal("Waiting for opponent to be ready…"); };
 
@@ -248,14 +249,11 @@
       } else {
         showModal("Waiting for opponent…", true);
       }
-
-      // Load any known state
       const st = res.state || {};
       const myPos = st.pos?.[myId]; if (myPos){ myX=myPos.x; myY=myPos.y; }
       const oPos = oppId && st.pos?.[oppId]; if (oPos){ oppX=oPos.x; oppY=oPos.y; oppMage.style.display='flex'; }
       myHP = st.hp?.[myId] ?? 100; oppHP = oppId ? (st.hp?.[oppId] ?? 100): 100;
       myScore = st.score?.[myId] ?? 0; oppScore = oppId ? (st.score?.[oppId] ?? 0): 0;
-
       setMagePos(myMage,myX,myY);
       setMagePos(oppMage,oppX,oppY);
       syncHPBars();
@@ -263,7 +261,6 @@
     });
 
     socket.on('roomReady', ({ players })=>{
-      // Both present; show Ready button if not ready yet
       const p2 = players.find(p=>p.id!==myId);
       if (p2){ oppId = p2.id; oppNick = p2.nickname; document.getElementById('oppNickAbove').textContent=oppNick; oppMage.style.display='flex'; }
       showModal("Both players present. Click Ready to start!", true);
@@ -271,18 +268,16 @@
     });
 
     socket.on('opponentReady', ()=>{
-      // Informative; our ready triggers round when both set
       showModal("Opponent is ready. Click Ready if you haven't yet.", true);
     });
 
     socket.on('roundCountdown', ({ seconds })=>{
       hideModal();
       gameActive = false;
-      doCountdown(seconds, ()=>{ /* roundStart will activate */ });
+      doCountdown(seconds, ()=>{});
     });
 
     socket.on('roundStart', ({ pos, hp })=>{
-      // Server authoritative start: positions + HP 100
       const my = pos[myId]; const op = pos[oppId] || {x:10,y:10};
       myX=my.x; myY=my.y; oppX=op.x; oppY=op.y;
       myHP = hp[myId]; oppHP = oppId ? hp[oppId] : 100;
@@ -292,28 +287,28 @@
       gameActive = true;
     });
 
-    // Opponent movement (anticipation + complete)
-    socket.on('opponentMoveStart', ({ x, y })=>{
-      // animate toward next
-      oppX = x; oppY = y;
-      setMagePos(oppMage, oppX, oppY);
-    });
-    socket.on('opponentMoveComplete', ({ x, y })=>{
-      oppX = x; oppY = y;
-      setMagePos(oppMage, oppX, oppY);
-    });
+    socket.on('opponentMoveStart', ({ x, y })=>{ oppX = x; oppY = y; setMagePos(oppMage, oppX, oppY); });
+    socket.on('opponentMoveComplete', ({ x, y })=>{ oppX = x; oppY = y; setMagePos(oppMage, oppX, oppY); });
 
-    // Spell resolution from server (authoritative)
+    // ======= SPELLS =======
     socket.on('spellResolved', ({ casterId, type, targetX, targetY, hit, hitTargetId, hp, })=>{
-      // Visuals
-      if (hit && hitTargetId){
-        const onMe = (hitTargetId === myId);
-        addSpellEffectOnEntity(onMe ? myMage : oppMage, type); // sd/uh
+      if (type === 'explo') {
+        const targets = [
+          { x: targetX, y: targetY },
+          { x: targetX, y: targetY-1 },
+          { x: targetX, y: targetY+1 },
+          { x: targetX-1, y: targetY },
+          { x: targetX+1, y: targetY }
+        ].filter(t => t.x>=0 && t.x<16 && t.y>=0 && t.y<16);
+        targets.forEach(t => addSpellEffectOnCell(t.x, t.y, 'explo'));
       } else {
-        addSpellEffectOnCell(targetX, targetY, 'miss');
+        if (hit && hitTargetId){
+          const onMe = (hitTargetId === myId);
+          addSpellEffectOnEntity(onMe ? myMage : oppMage, type);
+        } else {
+          addSpellEffectOnCell(targetX, targetY, 'miss');
+        }
       }
-
-      // HP updates for both
       if (typeof hp?.[myId] === 'number') myHP = hp[myId];
       if (oppId && typeof hp?.[oppId] === 'number') oppHP = hp[oppId];
       syncHPBars();
@@ -324,7 +319,6 @@
       myScore = score?.[myId] ?? myScore;
       oppScore = oppId ? (score?.[oppId] ?? oppScore) : oppScore;
       updateScoreboard();
-
       const won = (winnerId === myId);
       showModal(won ? "You won the round! Click Ready for next." : "You lost the round! Click Ready for next.", true);
     });
@@ -338,22 +332,9 @@
       syncHPBars();
     });
 
-    // ======= Spell click -> add local miss effect instantly for feedback (optional latency mask) =======
-    // (We rely on server 'spellResolved' for the final/authoritative effect & HP)
-    function quickMissPreview(x,y){
-      addSpellEffectOnCell(x,y,'miss');
-    }
-
-    // Clicking the board already sends castRune; if you want local feedback uncomment:
-    // board.addEventListener('click',(e)=>{ /* preview only, server decides final */ });
-
     // Initial modal
     showModal("Connecting / Waiting for opponent…", true);
-
-    // Sidebar hp starts full
     syncHPBars(); updateScoreboard();
-
-    // Board click to cast also needs to compute coords for local preview (already above)
   </script>
 </body>
 </html>
