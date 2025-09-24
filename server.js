@@ -54,7 +54,7 @@ function broadcastRoom(roomId, event, payload) {
   io.to(roomId).emit(event, payload);
 }
 
-// === NEW: prepare list of active rooms for lobby ===
+// === Prepare list of active rooms for lobby ===
 function getActiveRooms() {
   return Object.entries(rooms)
     .filter(([_, r]) => r.players && r.players.length > 0)
@@ -96,7 +96,6 @@ io.on("connection", (socket) => {
     socket.data.roomId = roomId;
     cb({ success: true });
 
-    // 🔔 Update lobby
     io.emit("roomsUpdate", getActiveRooms());
   });
 
@@ -124,7 +123,6 @@ io.on("connection", (socket) => {
     }
     cb({ success: true });
 
-    // 🔔 Update lobby
     io.emit("roomsUpdate", getActiveRooms());
   });
 
@@ -164,7 +162,6 @@ io.on("connection", (socket) => {
       });
     }
 
-    // 🔔 Update lobby (in case someone jumps straight to game)
     io.emit("roomsUpdate", getActiveRooms());
   });
 
@@ -226,29 +223,54 @@ io.on("connection", (socket) => {
     let hit = false;
     let hitTarget = null;
 
-    const myPos = room.state.pos[me];
-    if (myPos && myPos.x === targetX && myPos.y === targetY) {
-      hit = true;
-      hitTarget = me;
-    }
+    if (type === "explo") {
+      // Cross pattern AOE
+      const targets = [
+        { x: targetX, y: targetY },
+        { x: targetX, y: targetY - 1 },
+        { x: targetX, y: targetY + 1 },
+        { x: targetX - 1, y: targetY },
+        { x: targetX + 1, y: targetY }
+      ].filter(t => t.x >= 0 && t.x < 16 && t.y >= 0 && t.y < 16);
 
-    if (opp) {
-      const oppPos = room.state.pos[opp];
-      const oppNext = room.state.next[opp];
-      const hitsOpp =
-        (oppPos && oppPos.x === targetX && oppPos.y === targetY) ||
-        (oppNext && oppNext.x === targetX && oppNext.y === targetY);
-      if (hitsOpp) {
+      room.players.forEach(pid => {
+        const pos = room.state.pos[pid];
+        const next = room.state.next[pid];
+        const inTargets = targets.some(t =>
+          (pos && pos.x === t.x && pos.y === t.y) ||
+          (next && next.x === t.x && next.y === t.y)
+        );
+        if (inTargets) {
+          hit = true;
+          hitTarget = pid;
+          room.state.hp[pid] = Math.max(0, (room.state.hp[pid] ?? 100) - 19);
+        }
+      });
+    } else {
+      const myPos = room.state.pos[me];
+      if (myPos && myPos.x === targetX && myPos.y === targetY) {
         hit = true;
-        hitTarget = opp;
+        hitTarget = me;
       }
-    }
 
-    if (hit && hitTarget) {
-      if (type === "sd") {
-        room.state.hp[hitTarget] = Math.max(0, (room.state.hp[hitTarget] ?? 100) - 40);
-      } else if (type === "uh") {
-        room.state.hp[hitTarget] = Math.min(100, (room.state.hp[hitTarget] ?? 100) + 40);
+      if (opp) {
+        const oppPos = room.state.pos[opp];
+        const oppNext = room.state.next[opp];
+        const hitsOpp =
+          (oppPos && oppPos.x === targetX && oppPos.y === targetY) ||
+          (oppNext && oppNext.x === targetX && oppNext.y === targetY);
+        if (hitsOpp) {
+          hit = true;
+          hitTarget = opp;
+        }
+      }
+
+      if (hit && hitTarget) {
+        if (type === "sd") {
+          room.state.hp[hitTarget] = Math.max(0, (room.state.hp[hitTarget] ?? 100) - 40);
+        } else if (type === "uh") {
+          room.state.hp[hitTarget] = Math.min(100, (room.state.hp[hitTarget] ?? 100) + 40);
+        }
       }
     }
 
@@ -295,7 +317,6 @@ io.on("connection", (socket) => {
       delete rooms[roomId];
     }
 
-    // 🔔 Update lobby
     io.emit("roomsUpdate", getActiveRooms());
   });
 });
